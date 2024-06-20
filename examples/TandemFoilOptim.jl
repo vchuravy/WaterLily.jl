@@ -1,4 +1,4 @@
-using WaterLily,StaticArrays
+using WaterLily, StaticArrays
 
 function make_foils(φ;two=true,L=32,Re=1e3,St=0.3,αₘ=-π/18,U=1,n=8,m=4)
     # Map from simulation coordinate x to surface coordinate ξ
@@ -46,5 +46,20 @@ function mean_drag(φ,two=true,St=0.3,N=3,period=2N/St)
 end
 
 using Optim
-θ = Optim.minimizer(optimize(x->-mean_drag(first(x)), [0f0], Newton(),
-    Optim.Options(show_trace=true,f_tol=1e-2); autodiff = :forward))
+f(x) = -mean_drag(first(x))
+# @time f([0f0])
+
+# θ1 = Optim.minimizer(optimize(f, [0f0], Newton(),
+#     Optim.Options(show_trace=true,f_tol=1e-2); autodiff = :forward))
+
+using Enzyme
+function g!(dx, x)
+    fill!(dx, 0) # or Enzyme.make_zero!
+    # autodiff(Forward, f, Duplicated(x, [1.0f0]))
+    autodiff(Reverse, f, Active, Duplicated(x, dx))
+    nothing
+end
+
+@time g!([0f0], [0f0])
+θ2 = Optim.minimizer(optimize(f, g!, [0f0], Newton(),
+    Optim.Options(show_trace=true,f_tol=1e-2)))
